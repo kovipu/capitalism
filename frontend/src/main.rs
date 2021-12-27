@@ -30,7 +30,7 @@ impl Component for Model {
         html! {
             <div>
                 <button onclick={link.callback(|_| Msg::AddOne)}>{ "+1" }</button>
-                <p>{ self.value }</p>
+                <p class="text-3xl font-bold underline">{ self.value }</p>
             </div>
         }
     }

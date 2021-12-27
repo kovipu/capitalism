@@ -1,0 +1,30 @@
+{
+  "name": "capitalism-frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.rs",
+  "scripts": {
+    "watch-tailwind": "npx tailwindcss -i ./src/main.css -o ./dist/output.css --watch",
+    "build-tailwind": "npx tailwindcss -o ./dist/output.css",
+    "start": "trunk serve",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kovipu/capitalism.git"
+  },
+  "keywords": [
+    "Rust",
+    "Yew",
+    "Tailwindcss"
+  ],
+  "author": "Konsta Purtsi kovipu@utu.fi",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kovipu/capitalism/issues"
+  },
+  "homepage": "https://github.com/kovipu/capitalism#readme",
+  "devDependencies": {
+    "tailwindcss": "^3.0.7"
+  }
+}
