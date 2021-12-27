@@ -1,37 +1,27 @@
 use yew::prelude::*;
-use yew::{html, Context, Properties};
+use yew::{events::MouseEvent, function_component, html, Properties};
 
-pub struct Button;
-
-#[derive(Properties, PartialEq, Clone)]
+#[derive(Properties, PartialEq)]
 pub struct Props {
     pub class: String,
     pub text: String,
-    pub onclick: Callback<Event>,
+    pub onclick: Callback<MouseEvent>,
 }
 
-impl Component for Button {
-    type Message = ();
-    type Properties = Props;
+#[function_component(Button)]
+pub fn button(props: &Props) -> Html {
+    let Props {
+        onclick,
+        class,
+        text,
+    } = props;
 
-    fn create(_ctx: &Context<Self>) -> Self {
-        Self
-    }
-
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        let Props {
-            class,
-            text,
-            onclick,
-        } = ctx.props();
-
-        html! {
-            <button onchange={onclick.clone()} class={format!(
-                "bg-grey-light hover:bg-grey transition border-b border-b-4 border-b-red p-2 font-bold {}",
-                class
-            )}>
-                { text }
-            </button>
-        }
+    html! {
+        <button onclick={onclick.clone()} class={format!(
+            "bg-grey-light hover:bg-grey transition border-b-4 border-b-red p-2 font-bold {}",
+            class
+        )}>
+            { text }
+        </button>
     }
 }

@@ -1,7 +1,5 @@
 use yew::prelude::*;
-use yew::{html, Context, Properties};
-
-pub struct Input;
+use yew::{function_component, html, Properties};
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
@@ -11,29 +9,21 @@ pub struct Props {
     pub onchange: Callback<Event>,
 }
 
-impl Component for Input {
-    type Message = ();
-    type Properties = Props;
+#[function_component(Input)]
+pub fn input(props: &Props) -> Html {
+    let Props {
+        class,
+        placeholder,
+        type_,
+        onchange,
+    } = props;
 
-    fn create(_ctx: &Context<Self>) -> Self {
-        Self
-    }
-
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        let Props {
-            class,
-            placeholder,
-            type_,
-            onchange,
-        } = ctx.props();
-
-        html! {
-            <input
-                class={format!("text-center border border-black p-2 w-full {}", class)}
-                type={type_.to_string()}
-                placeholder={placeholder.to_string()}
-                onchange={onchange.clone()}
-            />
-        }
+    html! {
+        <input
+            class={format!("text-center border border-black p-2 w-full {}", class)}
+            type={type_.to_string()}
+            placeholder={placeholder.to_string()}
+            onchange={onchange.clone()}
+        />
     }
 }

@@ -1,29 +1,21 @@
+use yew::function_component;
 use yew::prelude::*;
 
+mod api;
 mod components;
 mod views;
 
 use views::login::Login;
 
-struct Model;
-
-impl Component for Model {
-    type Message = ();
-    type Properties = ();
-
-    fn create(_ctx: &Context<Self>) -> Self {
-        Self
-    }
-
-    fn view(&self, _ctx: &Context<Self>) -> Html {
-        html! {
-            <div class="flex flex-col h-screen">
-                <Login/>
-            </div>
-        }
+#[function_component(App)]
+fn app() -> Html {
+    html! {
+        <div class="flex flex-col h-screen">
+            <Login/>
+        </div>
     }
 }
 
 fn main() {
-    yew::start_app::<Model>();
+    yew::start_app::<App>();
 }
