@@ -10,6 +10,8 @@ use juniper::http::GraphQLRequest;
 mod nordnet;
 use nordnet::schema::{create_schema, Schema};
 
+use nordnet::client;
+
 #[actix_web::main]
 async fn main() -> io::Result<()> {
     // Create Juniper schema
@@ -63,6 +65,8 @@ async fn graphql(
         serde_json::to_string(&res)
     })
     .await?;
+
+    dbg!(client::get_accounts().await);
 
     Ok(HttpResponse::Ok()
         .content_type("application/json")

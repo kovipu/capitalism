@@ -1,6 +1,8 @@
 use juniper::GraphQLObject;
 use juniper::{EmptyMutation, EmptySubscription, FieldResult, RootNode};
 
+use crate::nordnet::client;
+
 #[derive(GraphQLObject)]
 struct NordnetAccount {
     /// The account identifier (id) of the account. The id is unique within the session. Not applicable for partners
