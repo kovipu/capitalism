@@ -1,7 +1,9 @@
 use std::io;
 use std::sync::Arc;
 
-use actix_web::{web, App, Error, HttpResponse, HttpServer};
+use actix_web::{dev::ServiceRequest, error, web, App, Error, HttpResponse, HttpServer};
+use actix_web_httpauth::extractors::basic::BasicAuth;
+use actix_web_httpauth::middleware::HttpAuthentication;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 
@@ -15,14 +17,41 @@ async fn main() -> io::Result<()> {
 
     // Start http server
     HttpServer::new(move || {
+        let auth_middleware = HttpAuthentication::basic(auth_validator);
         App::new()
+            .wrap(auth_middleware)
             .data(schema.clone())
-            .route("/graphiql", actix_web::web::get().to(graphiql))
-            .route("/graphql", actix_web::web::post().to(graphql))
+            .route("/api/login", web::post().to(login))
+            .route("/api/graphiql", actix_web::web::get().to(graphiql))
+            .route("/api/graphql", actix_web::web::post().to(graphql))
     })
     .bind("127.0.0.1:8081")?
     .run()
     .await
+}
+
+async fn auth_validator(
+    req: ServiceRequest,
+    credentials: BasicAuth,
+) -> Result<ServiceRequest, Error> {
+    let username = credentials.user_id();
+    let password = credentials.password();
+
+    match password {
+        None => Err(error::ErrorBadRequest("Missing password".to_string())),
+        Some(password) => {
+            if username == "admin" && password == "admin" {
+                Ok(req)
+            } else {
+                Err(error::ErrorUnauthorized("Invalid credentials".to_string()))
+            }
+        }
+    }
+}
+
+async fn login() -> Result<HttpResponse, Error> {
+    // Credentials are actually handled by auth middleware, so this is just a dummy endpoint.
+    Ok(HttpResponse::Ok().body("Login successful"))
 }
 
 async fn graphql(

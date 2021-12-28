@@ -1,12 +1,19 @@
 use wasm_bindgen::JsCast;
 use web_sys::{EventTarget, HtmlInputElement};
 use yew::prelude::*;
-use yew::{events::Event, function_component, html, use_state};
+use yew::{events::Event, function_component, html, use_state, Properties};
 
 use crate::components::{button::Button, input::Input};
 
+#[derive(Properties, PartialEq)]
+pub struct Props {
+    pub on_login: Callback<(String, String)>,
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
 #[function_component(Login)]
-pub fn login() -> Html {
+pub fn login(props: &Props) -> Html {
     let username = use_state(|| "".to_string());
     let password = use_state(|| "".to_string());
 
@@ -28,15 +35,19 @@ pub fn login() -> Html {
         })
     };
 
-    let on_login_click = Callback::from(move |_| {
-        // request login.
-    });
+    let on_login_click = {
+        let on_login = props.on_login.clone();
+        Callback::from(move |_| {
+            on_login.emit((username.to_string(), password.to_string()));
+        })
+    };
 
     html! {
         <div class="flex flex-col m-auto w-80 before:block before:bg-red before:w-12 before:h-2">
             <h1 class="my-8 text-3xl">
                 { "CAPITALISM / LOGIN" }
             </h1>
+
             <Input
                 class="my-2"
                 type_="text"
@@ -54,6 +65,17 @@ pub fn login() -> Html {
                 text="LOGIN"
                 onclick={on_login_click}
             />
+            if let Some(err) = &props.error {
+                <p class="my-2 text-center">
+                    { err }
+                </p>
+            }
+
+            if props.loading {
+                <p class="my-2 text-center">
+                    { "Loading..." }
+                </p>
+            }
         </div>
     }
 }

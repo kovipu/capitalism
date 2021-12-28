@@ -1,17 +1,20 @@
-use std::collections::HashMap;
-
 use dotenv_codegen::dotenv;
-use reqwest::Error;
+use reqwasm::http::{Request, Response};
+use reqwasm::Error;
 
 const API_ROOT: &str = dotenv!("API_ROOT");
 
 // exchange username and password for a jwt token
-pub async fn login(username: &str, password: &str) -> Result<String, Error> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/login", API_ROOT);
-    let params = HashMap::from([("username", username), ("password", password)]);
+pub async fn login(username: &str, password: &str) -> Result<Response, Error> {
+    let req: Request = Request::post(&format!("{}/login", API_ROOT))
+        .header("Authorization", &build_auth_header(username, password));
 
-    let res = client.post(url).form(&params).send().await?;
+    req.send().await
+}
 
-    Ok(res.text().await?)
+pub fn build_auth_header(username: &str, password: &str) -> String {
+    format!(
+        "Basic {}",
+        base64::encode(format!("{}:{}", username, password))
+    )
 }
