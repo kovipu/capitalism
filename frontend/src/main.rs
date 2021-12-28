@@ -1,27 +1,20 @@
 use yew::prelude::*;
+use yew_router::prelude::*;
 
 mod api;
+mod app;
 mod components;
-
+mod routes;
 mod views;
 
-use views::login::Login;
+use app::App;
 
-#[function_component(App)]
-fn app() -> Html {
-    let auth = use_state(|| "".to_string());
-
-    let login_callback = {
-        let auth = auth.clone();
-        Callback::from(move |new_auth| {
-            auth.set(new_auth);
-        })
-    };
-
+#[function_component(Main)]
+fn mainwrapper() -> Html {
     html! {
-        <div class="flex flex-col h-screen">
-            <Login callback={login_callback} />
-        </div>
+        <BrowserRouter>
+            <App />
+        </BrowserRouter>
     }
 }
 
@@ -30,5 +23,5 @@ fn main() {
     wasm_logger::init(wasm_logger::Config::default());
 
     // Start the Yew app.
-    yew::start_app::<App>();
+    yew::start_app::<Main>();
 }

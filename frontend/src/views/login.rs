@@ -3,8 +3,8 @@ use web_sys::{EventTarget, HtmlInputElement};
 use yew::prelude::*;
 use yew::{events::Event, function_component, html, use_state, Properties};
 
-use crate::components::{button::Button, input::Input};
 use crate::api;
+use crate::components::{button::Button, input::Input};
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -39,8 +39,6 @@ pub fn login(props: &Props) -> Html {
     let on_login_click = {
         let callback = props.callback.clone();
         let error = error.clone();
-        let username = username.clone();
-        let password = password.clone();
 
         Callback::from(move |_| {
             let username = username.clone();

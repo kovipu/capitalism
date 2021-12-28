@@ -6,8 +6,7 @@ const API_ROOT: &str = dotenv!("API_ROOT");
 
 // exchange username and password for a jwt token
 pub async fn login(auth: &str) -> Result<Response, Error> {
-    let req: Request = Request::post(&format!("{}/login", API_ROOT))
-        .header("Authorization", auth);
+    let req: Request = Request::post(&format!("{}/login", API_ROOT)).header("Authorization", auth);
 
     req.send().await
 }
