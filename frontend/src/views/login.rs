@@ -4,18 +4,19 @@ use yew::prelude::*;
 use yew::{events::Event, function_component, html, use_state, Properties};
 
 use crate::components::{button::Button, input::Input};
+use crate::api;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
-    pub on_login: Callback<(String, String)>,
-    pub loading: bool,
-    pub error: Option<String>,
+    pub callback: Callback<String>,
 }
 
 #[function_component(Login)]
 pub fn login(props: &Props) -> Html {
     let username = use_state(|| "".to_string());
     let password = use_state(|| "".to_string());
+
+    let error: UseStateHandle<Option<String>> = use_state(|| None);
 
     let on_username_change = {
         let username = username.clone();
@@ -36,9 +37,35 @@ pub fn login(props: &Props) -> Html {
     };
 
     let on_login_click = {
-        let on_login = props.on_login.clone();
+        let callback = props.callback.clone();
+        let error = error.clone();
+        let username = username.clone();
+        let password = password.clone();
+
         Callback::from(move |_| {
-            on_login.emit((username.to_string(), password.to_string()));
+            let username = username.clone();
+            let password = password.clone();
+            let error = error.clone();
+            let callback = callback.clone();
+
+            wasm_bindgen_futures::spawn_local(async move {
+                let auth: String = api::build_auth_header(&username, &password);
+                let result = api::login(&auth).await;
+
+                match result {
+                    Err(_) => {
+                        error.set(Some("Login request failed.".to_string()));
+                    }
+                    Ok(response) => {
+                        if response.status() == 200 {
+                            callback.emit(auth);
+                        } else {
+                            let message = response.text().await.unwrap();
+                            error.set(Some(message));
+                        }
+                    }
+                }
+            });
         })
     };
 
@@ -65,15 +92,9 @@ pub fn login(props: &Props) -> Html {
                 text="LOGIN"
                 onclick={on_login_click}
             />
-            if let Some(err) = &props.error {
+            if let Some(err) = &*error {
                 <p class="my-2 text-center">
                     { err }
-                </p>
-            }
-
-            if props.loading {
-                <p class="my-2 text-center">
-                    { "Loading..." }
                 </p>
             }
         </div>
