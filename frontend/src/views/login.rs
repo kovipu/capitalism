@@ -36,6 +36,8 @@ pub fn login(props: &Props) -> Html {
         })
     };
 
+    let button_disabled = username.is_empty() || password.is_empty();
+
     let on_login_click = {
         let callback = props.callback.clone();
         let error = error.clone();
@@ -88,6 +90,7 @@ pub fn login(props: &Props) -> Html {
             <Button
                 class="mt-4"
                 text="LOGIN"
+                disabled={button_disabled}
                 onclick={on_login_click}
             />
             if let Some(err) = &*error {
