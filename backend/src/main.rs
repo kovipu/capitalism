@@ -1,13 +1,17 @@
 use std::io;
 use std::sync::Arc;
 
+use actix_multipart::Multipart;
 use actix_web::{dev::ServiceRequest, error, web, App, Error, HttpResponse, HttpServer};
 use actix_web_httpauth::extractors::basic::BasicAuth;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 
+mod bank;
 mod nordnet;
+
+use bank::statement;
 use nordnet::schema::{create_schema, Schema};
 
 #[actix_web::main]
@@ -22,8 +26,9 @@ async fn main() -> io::Result<()> {
             .wrap(auth_middleware)
             .data(schema.clone())
             .route("/api/login", web::post().to(login))
-            .route("/api/graphiql", actix_web::web::get().to(graphiql))
-            .route("/api/graphql", actix_web::web::post().to(graphql))
+            .route("/api/statement", web::post().to(upload_statement))
+            .route("/api/graphiql", web::get().to(graphiql))
+            .route("/api/graphql", web::post().to(graphql))
     })
     .bind("127.0.0.1:8081")?
     .run()
@@ -52,6 +57,15 @@ async fn auth_validator(
 async fn login() -> Result<HttpResponse, Error> {
     // Credentials are actually handled by auth middleware, so this is just a dummy endpoint.
     Ok(HttpResponse::Ok().body("Login successful"))
+}
+
+async fn upload_statement(payload: Multipart) -> Result<HttpResponse, Error> {
+    let upload_status = statement::read_statement(payload).await;
+
+    match upload_status {
+        Ok(_) => Ok(HttpResponse::Ok().body("Statement uploaded successfully")),
+        Err(err) => Err(error::ErrorInternalServerError(err)),
+    }
 }
 
 async fn graphql(
