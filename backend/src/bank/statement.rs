@@ -7,7 +7,7 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use futures_util::stream::StreamExt as _;
 
 #[derive(Debug)]
-struct InputStatement {
+struct Transaction {
     date: NaiveDate,
     recipient: String,
     statement_type: String,
@@ -43,7 +43,7 @@ pub async fn read_statement(mut payload: Multipart) -> Result<bool, Box<dyn Erro
                 let amount_cents: i64 =
                     (result[4].trim().replace(',', ".").parse::<f64>()? * 100.0) as i64;
 
-                let statement = InputStatement {
+                let transaction = Transaction {
                     date,
                     recipient,
                     statement_type,

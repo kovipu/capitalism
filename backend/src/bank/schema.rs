@@ -9,6 +9,8 @@ struct BankAccount {
     alias: String,
     /// The account number.
     iban: String,
+    /// Balance of the account in cents.
+    balance_cents: i32,
     /// Transactions of the account.
     transactions: Vec<BankTransaction>,
 }

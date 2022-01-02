@@ -2,20 +2,29 @@ use std::io;
 use std::sync::Arc;
 
 use actix_multipart::Multipart;
-use actix_web::{dev::ServiceRequest, error, web, App, Error, HttpResponse, HttpServer};
+use actix_web::{dev::ServiceRequest, error, web, App, Error, HttpResponse, HttpServer, middleware::Logger};
 use actix_web_httpauth::extractors::basic::BasicAuth;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
+use log;
 
 mod bank;
 mod nordnet;
+mod db;
 
 use bank::statement;
 use nordnet::schema::{create_schema, Schema};
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
+    // Set up logger middleware
+    std::env::set_var("RUST_LOG", "actix_web=info");
+    env_logger::init();
+
+    // Create a pool of Postgres connections
+    let pool = db::establish_connection();
+
     // Create Juniper schema
     let schema = Arc::new(create_schema());
 
@@ -23,7 +32,9 @@ async fn main() -> io::Result<()> {
     HttpServer::new(move || {
         let auth_middleware = HttpAuthentication::basic(auth_validator);
         App::new()
+            .wrap(Logger::default())
             .wrap(auth_middleware)
+            .data(pool.clone())
             .data(schema.clone())
             .route("/api/login", web::post().to(login))
             .route("/api/statement", web::post().to(upload_statement))
