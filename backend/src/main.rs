@@ -1,19 +1,26 @@
 use std::io;
 use std::sync::Arc;
 
+#[macro_use]
+extern crate diesel;
+
 use actix_multipart::Multipart;
-use actix_web::{dev::ServiceRequest, error, web, App, Error, HttpResponse, HttpServer, middleware::Logger};
+use actix_web::{
+    dev::ServiceRequest, error, middleware::Logger, web, App, Error, HttpResponse, HttpServer,
+};
 use actix_web_httpauth::extractors::basic::BasicAuth;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
-use log;
+use serde::{Deserialize, Serialize};
 
 mod bank;
-mod nordnet;
 mod db;
+mod nordnet;
+mod schema;
 
-use bank::statement;
+use bank::statement_handler;
+use db::PgPool;
 use nordnet::schema::{create_schema, Schema};
 
 #[actix_web::main]
@@ -23,10 +30,10 @@ async fn main() -> io::Result<()> {
     env_logger::init();
 
     // Create a pool of Postgres connections
-    let pool = db::establish_connection();
+    let pool: PgPool = db::create_pool();
 
     // Create Juniper schema
-    let schema = Arc::new(create_schema());
+    let schema: Arc<Schema> = Arc::new(create_schema());
 
     // Start http server
     HttpServer::new(move || {
@@ -70,8 +77,17 @@ async fn login() -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().body("Login successful"))
 }
 
-async fn upload_statement(payload: Multipart) -> Result<HttpResponse, Error> {
-    let upload_status = statement::read_statement(payload).await;
+#[derive(Debug, Serialize, Deserialize)]
+struct UploadParams {
+    account_id: i32,
+}
+
+async fn upload_statement(
+    params: web::Query<UploadParams>,
+    payload: Multipart,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, Error> {
+    let upload_status = statement_handler::read_statement(params.account_id, payload, &pool).await;
 
     match upload_status {
         Ok(_) => Ok(HttpResponse::Ok().body("Statement uploaded successfully")),

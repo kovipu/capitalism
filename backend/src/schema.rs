@@ -12,6 +12,7 @@ table! {
         id -> Int4,
         account_id -> Int4,
         date -> Date,
+        recipient -> Text,
         description -> Text,
         transaction_type -> Text,
         amount_cents -> Int8,

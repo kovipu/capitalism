@@ -72,7 +72,7 @@ pub fn login(props: &Props) -> Html {
     html! {
         <div class="flex flex-col m-auto w-80 before:block before:bg-red before:w-12 before:h-2">
             <h1 class="my-8 text-3xl">
-                { "CAPITALISM / LOGIN" }
+                { "LOGIN" }
             </h1>
 
             <Input
