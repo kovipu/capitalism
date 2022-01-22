@@ -1,11 +1,20 @@
 use chrono::NaiveDate;
 
-use crate::schema::bank_transactions;
+use crate::schema::{bank_transaction_statements, bank_transactions};
+
+#[derive(Insertable)]
+#[table_name = "bank_transaction_statements"]
+pub struct BankTransactionStatement {
+    pub account_id: i32,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+}
 
 #[derive(Insertable)]
 #[table_name = "bank_transactions"]
 pub struct BankTransaction {
     pub account_id: i32,
+    pub statement_id: i32,
     pub date: NaiveDate,
     pub recipient: String,
     pub description: String,

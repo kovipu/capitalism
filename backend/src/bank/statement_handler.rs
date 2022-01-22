@@ -1,8 +1,8 @@
 use std::error::Error;
 
 use actix_multipart::Multipart;
-use csv::StringRecord;
 use chrono::NaiveDate;
+use csv::StringRecord;
 use diesel::prelude::*;
 use encoding_rs::ISO_8859_10;
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -10,15 +10,15 @@ use futures_util::stream::StreamExt as _;
 
 use crate::db::PgPool;
 use crate::schema::bank_accounts::dsl::*;
-use crate::schema::bank_transactions;
+use crate::schema::{bank_transaction_statements, bank_transactions};
 
-use super::models::{BankAccount, BankTransaction};
+use super::models::{BankAccount, BankTransaction, BankTransactionStatement};
 
 pub async fn read_statement(
     account_id: i32,
     mut payload: Multipart,
     pool: &PgPool,
-) -> Result<bool, Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>> {
     // find if account exists and get previous balance
     let mut balance: i64 = bank_accounts
         .filter(id.eq(account_id))
@@ -27,6 +27,7 @@ pub async fn read_statement(
         .ok_or_else(|| "Account not found".to_string())?
         .balance_cents;
 
+    // We have to collect the statements in a vector to read them in reverse order.
     let mut transactions: Vec<StringRecord> = vec![];
 
     // iterate over multipart stream
@@ -53,11 +54,42 @@ pub async fn read_statement(
         }
     }
 
+    // Insert statement into database.
+    let start_date = transactions
+        .last()
+        .ok_or_else(|| "No transactions found".to_string())?
+        .get(0)
+        .ok_or_else(|| "No transactions found".to_string())?;
+    let start_date = NaiveDate::parse_from_str(start_date, "%d.%m.%Y")?;
+
+    let end_date = transactions
+        .first()
+        .ok_or_else(|| "No transactions found".to_string())?
+        .get(0)
+        .ok_or_else(|| "No transactions found".to_string())?;
+    let end_date = NaiveDate::parse_from_str(end_date, "%d.%m.%Y")?;
+
+    let statement = BankTransactionStatement {
+        account_id,
+        start_date,
+        end_date,
+    };
+
+    let statement_id: i32 = *diesel::insert_into(bank_transaction_statements::table)
+        .values(&statement)
+        .returning(bank_transaction_statements::id)
+        .get_results(&pool.get()?)?
+        .first()
+        .ok_or_else(|| "Could not insert statement".to_string())?;
+
+    // Format transactions into BankTransaction structs
+    let mut formatted_transactions: Vec<BankTransaction> = vec![];
+
     for transaction in transactions.into_iter().rev() {
         let get_field = |field: usize| -> Result<String, Box<dyn Error>> {
-            let field = transaction.get(field).ok_or_else(|| {
-                format!("Missing field: {}", field)
-            })?;
+            let field = transaction
+                .get(field)
+                .ok_or_else(|| format!("Missing field: {}", field))?;
             Ok(field.trim().to_string())
         };
 
@@ -65,13 +97,13 @@ pub async fn read_statement(
         let recipient = get_field(1)?;
         let transaction_type = get_field(2)?;
         let description = get_field(3)?;
-        let amount_cents: i64 =
-            (get_field(4)?.replace(',', ".").parse::<f64>()? * 100.0) as i64;
+        let amount_cents: i64 = (get_field(4)?.replace(',', ".").parse::<f64>()? * 100.0) as i64;
 
-        balance = balance + amount_cents;
+        balance += amount_cents;
 
         let transaction = BankTransaction {
             account_id,
+            statement_id,
             date,
             recipient,
             transaction_type,
@@ -80,16 +112,18 @@ pub async fn read_statement(
             balance_cents: balance,
         };
 
-        // insert transaction
-        diesel::insert_into(bank_transactions::table)
-            .values(&transaction)
-            .execute(&pool.get()?)?;
+        formatted_transactions.push(transaction);
     }
+
+    // Insert transactions into database.
+    diesel::insert_into(bank_transactions::table)
+        .values(&formatted_transactions)
+        .execute(&pool.get()?)?;
 
     // update account balance
     diesel::update(bank_accounts.filter(id.eq(account_id)))
         .set(balance_cents.eq(balance))
         .execute(&pool.get()?)?;
 
-    Ok(true)
+    Ok(())
 }
