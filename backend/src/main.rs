@@ -16,12 +16,13 @@ use serde::{Deserialize, Serialize};
 
 mod bank;
 mod db;
+mod graphql_schema;
 mod nordnet;
 mod schema;
 
 use bank::statement_handler;
 use db::PgPool;
-use nordnet::schema::{create_schema, Schema};
+use graphql_schema::{create_schema, Schema};
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
@@ -45,8 +46,8 @@ async fn main() -> io::Result<()> {
             .data(schema.clone())
             .route("/api/login", web::post().to(login))
             .route("/api/statement", web::post().to(upload_statement))
-            .route("/api/graphiql", web::get().to(graphiql))
             .route("/api/graphql", web::post().to(graphql))
+            .route("/graphiql", web::get().to(graphiql))
     })
     .bind("127.0.0.1:8081")?
     .run()
@@ -111,7 +112,7 @@ async fn graphql(
 }
 
 async fn graphiql() -> HttpResponse {
-    let html = graphiql_source("http://localhost:8081/graphql", None);
+    let html = graphiql_source("http://localhost:8081/api/graphql", None);
 
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
