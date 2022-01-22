@@ -16,18 +16,36 @@ use super::models::{BankAccount, BankTransaction, BankTransactionStatement};
 
 pub async fn read_statement(
     account_id: i32,
-    mut payload: Multipart,
+    payload: Multipart,
     pool: &PgPool,
 ) -> Result<(), Box<dyn Error>> {
     // find if account exists and get previous balance
-    let mut balance: i64 = bank_accounts
+    let mut balance = find_balance(account_id, pool)?;
+
+    // We have to collect the statements in a vector to read them in reverse order.
+    let transactions = read_payload(payload).await?;
+
+    let statement_id = insert_statement(&transactions, account_id, pool)?;
+
+    insert_transactions(transactions, &mut balance, account_id, statement_id, pool)?;
+
+    update_balance(account_id, balance, pool)?;
+
+    Ok(())
+}
+
+fn find_balance(account_id: i32, pool: &PgPool) -> Result<i64, Box<dyn Error>> {
+    let balance: i64 = bank_accounts
         .filter(id.eq(account_id))
         .load::<BankAccount>(&pool.get()?)?
         .first()
         .ok_or_else(|| "Account not found".to_string())?
         .balance_cents;
 
-    // We have to collect the statements in a vector to read them in reverse order.
+    Ok(balance)
+}
+
+async fn read_payload(mut payload: Multipart) -> Result<Vec<StringRecord>, Box<dyn Error>> {
     let mut transactions: Vec<StringRecord> = vec![];
 
     // iterate over multipart stream
@@ -54,7 +72,15 @@ pub async fn read_statement(
         }
     }
 
-    // Insert statement into database.
+    Ok(transactions)
+}
+
+// Insert statement into database.
+fn insert_statement(
+    transactions: &[StringRecord],
+    account_id: i32,
+    pool: &PgPool,
+) -> Result<i32, Box<dyn Error>> {
     let start_date = transactions
         .last()
         .ok_or_else(|| "No transactions found".to_string())?
@@ -82,6 +108,16 @@ pub async fn read_statement(
         .first()
         .ok_or_else(|| "Could not insert statement".to_string())?;
 
+    Ok(statement_id)
+}
+
+fn insert_transactions(
+    transactions: Vec<StringRecord>,
+    balance: &mut i64,
+    account_id: i32,
+    statement_id: i32,
+    pool: &PgPool,
+) -> Result<(), Box<dyn Error>> {
     // Format transactions into BankTransaction structs
     let mut formatted_transactions: Vec<BankTransaction> = vec![];
 
@@ -99,7 +135,7 @@ pub async fn read_statement(
         let description = get_field(3)?;
         let amount_cents: i64 = (get_field(4)?.replace(',', ".").parse::<f64>()? * 100.0) as i64;
 
-        balance += amount_cents;
+        *balance += amount_cents;
 
         let transaction = BankTransaction {
             account_id,
@@ -109,18 +145,20 @@ pub async fn read_statement(
             transaction_type,
             description,
             amount_cents,
-            balance_cents: balance,
+            balance_cents: *balance,
         };
 
         formatted_transactions.push(transaction);
     }
 
-    // Insert transactions into database.
     diesel::insert_into(bank_transactions::table)
         .values(&formatted_transactions)
         .execute(&pool.get()?)?;
 
-    // update account balance
+    Ok(())
+}
+
+fn update_balance(account_id: i32, balance: i64, pool: &PgPool) -> Result<(), Box<dyn Error>> {
     diesel::update(bank_accounts.filter(id.eq(account_id)))
         .set(balance_cents.eq(balance))
         .execute(&pool.get()?)?;
