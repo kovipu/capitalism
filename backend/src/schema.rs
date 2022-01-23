@@ -2,7 +2,7 @@ table! {
     bank_accounts (id) {
         id -> Int4,
         alias -> Text,
-        ìban -> Text,
+        iban_number -> Text,
         balance_cents -> Int8,
     }
 }

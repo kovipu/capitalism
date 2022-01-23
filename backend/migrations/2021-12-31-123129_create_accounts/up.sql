@@ -2,7 +2,7 @@
 CREATE TABLE bank_accounts (
   id SERIAL PRIMARY KEY,
   alias TEXT NOT NULL,
-  ìban TEXT NOT NULL,
+  iban_number TEXT NOT NULL,
   balance_cents BIGINT NOT NULL --This will overflow when I get rich
 );
 

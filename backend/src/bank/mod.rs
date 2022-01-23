@@ -1,3 +1,2 @@
-pub mod graphql_schema;
-pub mod models;
+pub mod schema;
 pub mod statement_handler;

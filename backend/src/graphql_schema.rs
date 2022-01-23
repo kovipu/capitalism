@@ -1,28 +1,50 @@
-use juniper::{EmptyMutation, EmptySubscription, GraphQLObject, RootNode};
+use juniper::{graphql_object, EmptySubscription, RootNode};
 
-use crate::{bank::graphql_schema::BankQuery, nordnet::graphql_schema::NordnetQuery};
+use crate::{
+    bank::schema::{BankMutation, BankQuery},
+    db::DbPool,
+    nordnet::graphql_schema::NordnetQuery,
+};
 
-#[derive(GraphQLObject)]
-pub struct RootQuery {
-    bank: BankQuery,
-    nordnet: NordnetQuery,
+/*
+ * Context declaration
+ */
+pub struct Context {
+    pub dbpool: DbPool,
 }
 
-impl RootQuery {
-    fn new() -> Self {
-        Self {
-            bank: BankQuery,
-            nordnet: NordnetQuery,
-        }
+impl juniper::Context for Context {}
+
+/*
+ * Query root
+ */
+pub struct Query {}
+
+#[graphql_object(context = Context)]
+impl Query {
+    fn bank(&self) -> BankQuery {
+        BankQuery
+    }
+
+    fn nordnet(&self) -> NordnetQuery {
+        NordnetQuery
     }
 }
 
-pub type Schema = RootNode<'static, RootQuery, EmptyMutation, EmptySubscription>;
+/*
+ * Mutation root
+ */
+pub struct MutationRoot;
+
+#[graphql_object(context = Context)]
+impl MutationRoot {
+    fn bank(&self) -> BankMutation {
+        BankMutation
+    }
+}
+
+pub type Schema = RootNode<'static, Query, MutationRoot, EmptySubscription<Context>>;
 
 pub fn create_schema() -> Schema {
-    Schema::new(
-        RootQuery::new(),
-        EmptyMutation::new(),
-        EmptySubscription::new(),
-    )
+    Schema::new(Query {}, MutationRoot {}, EmptySubscription::new())
 }

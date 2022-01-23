@@ -8,41 +8,56 @@ use encoding_rs::ISO_8859_10;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use futures_util::stream::StreamExt as _;
 
-use crate::db::PgPool;
+use crate::db::DbPool;
 use crate::schema::bank_accounts::dsl::*;
 use crate::schema::{bank_transaction_statements, bank_transactions};
 
-use super::models::{BankAccount, BankTransaction, BankTransactionStatement};
+use super::schema::{BankAccount};
 
+// These 2 structs are not currently used by GraphQL, only here.
+#[derive(Insertable)]
+#[table_name = "bank_transaction_statements"]
+pub struct NewBankTransactionStatement {
+    pub account_id: i32,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+}
+
+#[derive(Insertable)]
+#[table_name = "bank_transactions"]
+pub struct NewBankTransaction {
+    pub account_id: i32,
+    pub statement_id: i32,
+    pub date: NaiveDate,
+    pub recipient: String,
+    pub description: String,
+    pub transaction_type: String,
+    pub amount_cents: i64,
+    pub balance_cents: i64,
+}
+
+/*
+ * A handler function for reading a statement CSV file and inserting it into the database.
+ */
 pub async fn read_statement(
     account_id: i32,
     payload: Multipart,
-    pool: &PgPool,
+    dbpool: &DbPool,
 ) -> Result<(), Box<dyn Error>> {
     // find if account exists and get previous balance
-    let mut balance = find_balance(account_id, pool)?;
+    let account: BankAccount = bank_accounts.find(account_id).first(&dbpool.get()?)?;
+    let mut balance = account.balance_cents;
 
     // We have to collect the statements in a vector to read them in reverse order.
     let transactions = read_payload(payload).await?;
 
-    let statement_id = insert_statement(&transactions, account_id, pool)?;
+    let statement_id = insert_statement(&transactions, account_id, dbpool)?;
 
-    insert_transactions(transactions, &mut balance, account_id, statement_id, pool)?;
+    insert_transactions(transactions, &mut balance, account_id, statement_id, dbpool)?;
 
-    update_balance(account_id, balance, pool)?;
+    update_balance(account_id, balance, dbpool)?;
 
     Ok(())
-}
-
-fn find_balance(account_id: i32, pool: &PgPool) -> Result<i64, Box<dyn Error>> {
-    let balance: i64 = bank_accounts
-        .filter(id.eq(account_id))
-        .load::<BankAccount>(&pool.get()?)?
-        .first()
-        .ok_or_else(|| "Account not found".to_string())?
-        .balance_cents;
-
-    Ok(balance)
 }
 
 async fn read_payload(mut payload: Multipart) -> Result<Vec<StringRecord>, Box<dyn Error>> {
@@ -79,7 +94,7 @@ async fn read_payload(mut payload: Multipart) -> Result<Vec<StringRecord>, Box<d
 fn insert_statement(
     transactions: &[StringRecord],
     account_id: i32,
-    pool: &PgPool,
+    dbpool: &DbPool,
 ) -> Result<i32, Box<dyn Error>> {
     let start_date = transactions
         .last()
@@ -95,7 +110,7 @@ fn insert_statement(
         .ok_or_else(|| "No transactions found".to_string())?;
     let end_date = NaiveDate::parse_from_str(end_date, "%d.%m.%Y")?;
 
-    let statement = BankTransactionStatement {
+    let statement = NewBankTransactionStatement {
         account_id,
         start_date,
         end_date,
@@ -104,7 +119,7 @@ fn insert_statement(
     let statement_id: i32 = *diesel::insert_into(bank_transaction_statements::table)
         .values(&statement)
         .returning(bank_transaction_statements::id)
-        .get_results(&pool.get()?)?
+        .get_results(&dbpool.get()?)?
         .first()
         .ok_or_else(|| "Could not insert statement".to_string())?;
 
@@ -116,10 +131,10 @@ fn insert_transactions(
     balance: &mut i64,
     account_id: i32,
     statement_id: i32,
-    pool: &PgPool,
+    dbpool: &DbPool,
 ) -> Result<(), Box<dyn Error>> {
     // Format transactions into BankTransaction structs
-    let mut formatted_transactions: Vec<BankTransaction> = vec![];
+    let mut formatted_transactions: Vec<NewBankTransaction> = vec![];
 
     for transaction in transactions.into_iter().rev() {
         let get_field = |field: usize| -> Result<String, Box<dyn Error>> {
@@ -137,7 +152,7 @@ fn insert_transactions(
 
         *balance += amount_cents;
 
-        let transaction = BankTransaction {
+        let transaction = NewBankTransaction {
             account_id,
             statement_id,
             date,
@@ -153,15 +168,15 @@ fn insert_transactions(
 
     diesel::insert_into(bank_transactions::table)
         .values(&formatted_transactions)
-        .execute(&pool.get()?)?;
+        .execute(&dbpool.get()?)?;
 
     Ok(())
 }
 
-fn update_balance(account_id: i32, balance: i64, pool: &PgPool) -> Result<(), Box<dyn Error>> {
+fn update_balance(account_id: i32, balance: i64, dbpool: &DbPool) -> Result<(), Box<dyn Error>> {
     diesel::update(bank_accounts.filter(id.eq(account_id)))
         .set(balance_cents.eq(balance))
-        .execute(&pool.get()?)?;
+        .execute(&dbpool.get()?)?;
 
     Ok(())
 }

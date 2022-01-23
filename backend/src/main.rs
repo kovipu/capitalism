@@ -21,8 +21,8 @@ mod nordnet;
 mod schema;
 
 use bank::statement_handler;
-use db::PgPool;
-use graphql_schema::{create_schema, Schema};
+use db::DbPool;
+use graphql_schema::{create_schema, Context, Schema};
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
@@ -31,7 +31,7 @@ async fn main() -> io::Result<()> {
     env_logger::init();
 
     // Create a pool of Postgres connections
-    let pool: PgPool = db::create_pool();
+    let dbpool: DbPool = db::create_pool();
 
     // Create Juniper schema
     let schema: Arc<Schema> = Arc::new(create_schema());
@@ -42,7 +42,7 @@ async fn main() -> io::Result<()> {
         App::new()
             .wrap(Logger::default())
             .wrap(auth_middleware)
-            .data(pool.clone())
+            .data(dbpool.clone())
             .data(schema.clone())
             .route("/api/login", web::post().to(login))
             .route("/api/statement", web::post().to(upload_statement))
@@ -86,9 +86,10 @@ struct UploadParams {
 async fn upload_statement(
     params: web::Query<UploadParams>,
     payload: Multipart,
-    pool: web::Data<PgPool>,
+    dbpool: web::Data<DbPool>,
 ) -> Result<HttpResponse, Error> {
-    let upload_status = statement_handler::read_statement(params.account_id, payload, &pool).await;
+    let upload_status =
+        statement_handler::read_statement(params.account_id, payload, &dbpool).await;
 
     match upload_status {
         Ok(_) => Ok(HttpResponse::Ok().body("Statement uploaded successfully")),
@@ -99,9 +100,13 @@ async fn upload_statement(
 async fn graphql(
     st: web::Data<Arc<Schema>>,
     data: web::Json<GraphQLRequest>,
+    dbpool: web::Data<DbPool>,
 ) -> Result<HttpResponse, Error> {
+    let context = Context {
+        dbpool: dbpool.get_ref().to_owned(),
+    };
     let body = web::block(move || {
-        let res = data.execute_sync(&st, &());
+        let res = data.execute_sync(&st, &context);
         serde_json::to_string(&res)
     })
     .await?;
