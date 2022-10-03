@@ -7,7 +7,7 @@ use crate::views::{home::Home, login::Login};
 #[function_component(App)]
 pub fn app() -> Html {
     let history = use_history().unwrap();
-    let auth = use_state(|| "".to_string());
+    let auth = use_state(|| "asd".to_string());
 
     let login_callback = {
         let auth = auth.clone();

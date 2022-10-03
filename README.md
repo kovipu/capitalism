@@ -10,12 +10,18 @@ Supports tracking finances in the following ways.
 
 ## Development
 
+### Backend
+Firstly
+```
+cd backend
+```
+
 Run database
 ```
 docker-compose up
 ```
 
-Run backend
+Run application
 ```
-cargo run -p backend
+cargo run
 ```

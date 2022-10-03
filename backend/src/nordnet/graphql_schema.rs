@@ -1,5 +1,5 @@
+use juniper::FieldResult;
 use juniper::GraphQLObject;
-use juniper::{EmptyMutation, EmptySubscription, FieldResult, RootNode};
 
 #[derive(GraphQLObject)]
 struct NordnetAccount {
@@ -21,11 +21,11 @@ struct NordnetAccount {
     account_type: String,
 }
 
-pub struct QueryRoot;
+pub struct NordnetQuery;
 
 #[juniper::graphql_object]
-impl QueryRoot {
-    fn nordnetAccounts() -> FieldResult<Vec<NordnetAccount>> {
+impl NordnetQuery {
+    fn accounts() -> FieldResult<Vec<NordnetAccount>> {
         Ok(vec![NordnetAccount {
             accid: Some(1),
             accno: 1,
@@ -37,10 +37,4 @@ impl QueryRoot {
             account_type: "".to_string(),
         }])
     }
-}
-
-pub type Schema = RootNode<'static, QueryRoot, EmptyMutation, EmptySubscription>;
-
-pub fn create_schema() -> Schema {
-    Schema::new(QueryRoot {}, EmptyMutation::new(), EmptySubscription::new())
 }
